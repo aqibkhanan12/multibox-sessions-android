@@ -5,6 +5,9 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -55,6 +58,10 @@ jobs:
           if [ -n "$SIGNING_KEYSTORE_PATH" ]; then
             cp app/build/outputs/apk/release/app-release.apk "out/MultiBox-Sessions-${GITHUB_RUN_NUMBER}.apk"
             cp app/build/outputs/bundle/release/app-release.aab "out/MultiBox-Sessions-PlayStore-${GITHUB_RUN_NUMBER}.aab"
+            # Fixed name so the website link never changes
+            cp app/build/outputs/apk/release/app-release.apk "out/MultiBox-Sessions.apk"
+            APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+            "$APKSIGNER" verify --print-certs "out/MultiBox-Sessions.apk" | head -5
           fi
           ls -la out
 
@@ -63,3 +70,17 @@ jobs:
         with:
           name: MultiBox-Sessions-build-${{ github.run_number }}
           path: out/
+
+      # Signed builds are published as a GitHub Release. The website links to:
+      # https://github.com/${{ github.repository }}/releases/latest/download/MultiBox-Sessions.apk
+      - name: Publish release
+        if: env.SIGNING_KEYSTORE_PATH != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: MultiBox Sessions for Android v1.0.${{ github.run_number }}
+          make_latest: true
+          body: |
+            MultiBox Sessions for Android. Download MultiBox-Sessions.apk below and open it on your phone to install.
+            Android 8.0 or newer. If Android asks, allow installing apps from this source.
+          files: out/MultiBox-Sessions.apk
